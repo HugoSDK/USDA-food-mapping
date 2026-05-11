@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { addDays, prettyDate, todayLocal } from "@/lib/date";
+import { addDays, MIN_DATE, prettyDate, todayLocal } from "@/lib/date";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 export function DateNav({ date }: { date: string }) {
@@ -10,13 +10,15 @@ export function DateNav({ date }: { date: string }) {
   const next = addDays(date, 1);
   const isToday = date === today;
   const isFutureNext = next > today;
+  const isPastPrev = prev < MIN_DATE;
 
   return (
     <div className="flex items-center justify-between gap-2">
       <Link
-        href={`/diary/${prev}`}
-        className="btn-secondary inline-flex items-center gap-1"
+        href={isPastPrev ? "#" : `/diary/${prev}`}
+        className={`btn-secondary inline-flex items-center gap-1 ${isPastPrev ? "opacity-30 pointer-events-none" : ""}`}
         aria-label="Previous day"
+        aria-disabled={isPastPrev}
       >
         <ChevronLeft size={16} /> Prev
       </Link>

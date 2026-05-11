@@ -1,17 +1,14 @@
-import { sqliteTable, text, integer, real, uniqueIndex, index } from "drizzle-orm/sqlite-core";
-import { sql } from "drizzle-orm";
+import { pgTable, text, integer, real, timestamp, uniqueIndex, index } from "drizzle-orm/pg-core";
 
-export const users = sqliteTable("users", {
+export const users = pgTable("users", {
   id: text("id").primaryKey(),
   email: text("email").notNull().unique(),
   passwordHash: text("password_hash").notNull(),
   name: text("name"),
-  createdAt: integer("created_at", { mode: "timestamp" })
-    .notNull()
-    .default(sql`(unixepoch())`),
+  createdAt: timestamp("created_at", { withTimezone: false }).notNull().defaultNow(),
 });
 
-export const foodEntries = sqliteTable(
+export const foodEntries = pgTable(
   "food_entries",
   {
     id: text("id").primaryKey(),
@@ -31,16 +28,14 @@ export const foodEntries = sqliteTable(
     carbsPer100g: real("carbs_per_100g").notNull(),
     fatPer100g: real("fat_per_100g").notNull(),
     fiberPer100g: real("fiber_per_100g").notNull().default(0),
-    createdAt: integer("created_at", { mode: "timestamp" })
-      .notNull()
-      .default(sql`(unixepoch())`),
+    createdAt: timestamp("created_at", { withTimezone: false }).notNull().defaultNow(),
   },
   (t) => ({
     byUserDate: index("food_entries_user_date_idx").on(t.userId, t.date),
   }),
 );
 
-export const weightEntries = sqliteTable(
+export const weightEntries = pgTable(
   "weight_entries",
   {
     id: text("id").primaryKey(),
@@ -49,9 +44,7 @@ export const weightEntries = sqliteTable(
       .references(() => users.id, { onDelete: "cascade" }),
     date: text("date").notNull(),
     kg: real("kg").notNull(),
-    createdAt: integer("created_at", { mode: "timestamp" })
-      .notNull()
-      .default(sql`(unixepoch())`),
+    createdAt: timestamp("created_at", { withTimezone: false }).notNull().defaultNow(),
   },
   (t) => ({
     uniqByUserDate: uniqueIndex("weight_entries_user_date_uq").on(t.userId, t.date),

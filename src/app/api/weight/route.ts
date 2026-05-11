@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { randomUUID } from "node:crypto";
 import { and, asc, eq, gte, lte } from "drizzle-orm";
-import { auth } from "@/auth";
 import { db, schema } from "@/db/client";
+import { SINGLE_USER_ID } from "@/lib/user";
 
 const DateStr = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
@@ -13,10 +13,6 @@ const PostBody = z.object({
 });
 
 export async function GET(req: Request) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
   const { searchParams } = new URL(req.url);
   const from = searchParams.get("from");
   const to = searchParams.get("to");
@@ -28,7 +24,7 @@ export async function GET(req: Request) {
     .from(schema.weightEntries)
     .where(
       and(
-        eq(schema.weightEntries.userId, session.user.id),
+        eq(schema.weightEntries.userId, SINGLE_USER_ID),
         gte(schema.weightEntries.date, from),
         lte(schema.weightEntries.date, to),
       ),
@@ -38,10 +34,6 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
   const json = await req.json().catch(() => null);
   const parsed = PostBody.safeParse(json);
   if (!parsed.success) {
@@ -49,7 +41,7 @@ export async function POST(req: Request) {
   }
   const existing = await db.query.weightEntries.findFirst({
     where: and(
-      eq(schema.weightEntries.userId, session.user.id),
+      eq(schema.weightEntries.userId, SINGLE_USER_ID),
       eq(schema.weightEntries.date, parsed.data.date),
     ),
   });
@@ -63,7 +55,7 @@ export async function POST(req: Request) {
   const id = randomUUID();
   await db.insert(schema.weightEntries).values({
     id,
-    userId: session.user.id,
+    userId: SINGLE_USER_ID,
     date: parsed.data.date,
     kg: parsed.data.kg,
   });

@@ -1,7 +1,8 @@
 import "dotenv/config";
 import { neon } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-http";
-import { migrate } from "drizzle-orm/neon-http/migrator";
+import * as schema from "./schema";
+import { SINGLE_USER_ID, SINGLE_USER_NAME } from "../lib/user";
 
 async function main() {
   const url = process.env.DATABASE_URL;
@@ -10,8 +11,18 @@ async function main() {
   }
   const sql = neon(url);
   const db = drizzle(sql);
-  await migrate(db, { migrationsFolder: "./drizzle" });
-  console.log("Migrations applied.");
+
+  await db
+    .insert(schema.users)
+    .values({
+      id: SINGLE_USER_ID,
+      email: "local@local",
+      passwordHash: "",
+      name: SINGLE_USER_NAME,
+    })
+    .onConflictDoNothing();
+
+  console.log(`Seeded user ${SINGLE_USER_ID}.`);
   process.exit(0);
 }
 
