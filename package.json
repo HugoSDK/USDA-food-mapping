@@ -14,7 +14,7 @@
     "db:seed": "tsx src/db/seed.ts"
   },
   "dependencies": {
-    "@neondatabase/serverless": "^1.1.0",
+    "@neondatabase/serverless": "^0.10.4",
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.36.4",
     "lucide-react": "^0.460.0",
