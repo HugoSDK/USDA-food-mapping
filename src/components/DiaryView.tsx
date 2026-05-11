@@ -7,16 +7,17 @@ import { EntryList } from "./EntryList";
 import { TotalsCard } from "./TotalsCard";
 import { WeightTracker } from "./WeightTracker";
 import { DateNav } from "./DateNav";
+import { MonthCalendar } from "./MonthCalendar";
 import { entryNutrients, sumTotals, ZERO_TOTALS } from "@/lib/nutrition";
 
 type Props = {
   date: string;
-  userName?: string | null;
 };
 
-export function DiaryView({ date, userName }: Props) {
+export function DiaryView({ date }: Props) {
   const [entries, setEntries] = useState<FoodEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -49,26 +50,43 @@ export function DiaryView({ date, userName }: Props) {
     const prev = entries;
     setEntries((cur) => cur.filter((e) => e.id !== id));
     const res = await fetch(`/api/entries/${id}`, { method: "DELETE" });
-    if (!res.ok) setEntries(prev);
+    if (!res.ok) {
+      console.error("Delete failed", res.status, await res.text().catch(() => ""));
+      setEntries(prev);
+      setError("Couldn't delete entry. Try again.");
+      return;
+    }
+    setError(null);
+  };
+
+  const onUpdate = async (id: string, grams: number) => {
+    const prev = entries;
+    setEntries((cur) => cur.map((e) => (e.id === id ? { ...e, grams } : e)));
+    const res = await fetch(`/api/entries/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ grams }),
+    });
+    if (!res.ok) {
+      console.error("Update failed", res.status, await res.text().catch(() => ""));
+      setEntries(prev);
+      setError("Couldn't update entry. Try again.");
+      return;
+    }
+    setError(null);
   };
 
   return (
     <main className="max-w-2xl mx-auto p-4 flex flex-col gap-4">
-      <header className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Food diary</h1>
-        <form action="/api/auth/signout" method="post">
-          <button type="submit" className="btn-ghost text-xs">
-            {userName ? `${userName} · sign out` : "Sign out"}
-          </button>
-        </form>
-      </header>
+      <MonthCalendar selected={date} />
       <DateNav date={date} />
       <TotalsCard totals={totals} />
       <AddFoodForm date={date} onAdded={onAdded} />
+      {error && <div className="card text-sm text-danger">{error}</div>}
       {loading ? (
         <div className="card text-sm text-muted">Loading…</div>
       ) : (
-        <EntryList entries={entries} onDelete={onDelete} />
+        <EntryList entries={entries} onDelete={onDelete} onUpdate={onUpdate} />
       )}
       <WeightTracker date={date} />
     </main>
