@@ -9,9 +9,50 @@ type Props = {
   entries: FoodEntry[];
   onDelete: (id: string) => void;
   onUpdate: (id: string, grams: number) => void;
+  onDeleteMeal?: (mealInstanceId: string) => void;
+  selectionMode?: boolean;
+  selectedIds?: Set<string>;
+  onToggleSelect?: (id: string) => void;
 };
 
-export function EntryList({ entries, onDelete, onUpdate }: Props) {
+type Block =
+  | { kind: "single"; entry: FoodEntry }
+  | { kind: "meal"; mealInstanceId: string; mealName: string; entries: FoodEntry[] };
+
+function groupEntries(entries: FoodEntry[]): Block[] {
+  const blocks: Block[] = [];
+  for (const entry of entries) {
+    const last = blocks[blocks.length - 1];
+    if (
+      entry.mealInstanceId &&
+      last &&
+      last.kind === "meal" &&
+      last.mealInstanceId === entry.mealInstanceId
+    ) {
+      last.entries.push(entry);
+    } else if (entry.mealInstanceId) {
+      blocks.push({
+        kind: "meal",
+        mealInstanceId: entry.mealInstanceId,
+        mealName: entry.mealName ?? "Meal",
+        entries: [entry],
+      });
+    } else {
+      blocks.push({ kind: "single", entry });
+    }
+  }
+  return blocks;
+}
+
+export function EntryList({
+  entries,
+  onDelete,
+  onUpdate,
+  onDeleteMeal,
+  selectionMode = false,
+  selectedIds,
+  onToggleSelect,
+}: Props) {
   if (entries.length === 0) {
     return (
       <div className="card text-sm text-muted">
@@ -19,12 +60,112 @@ export function EntryList({ entries, onDelete, onUpdate }: Props) {
       </div>
     );
   }
+
+  // In selection mode, render a flat list of selectable rows. Meal grouping is
+  // hidden so users can pick any subset of entries.
+  if (selectionMode) {
+    return (
+      <ul className="flex flex-col gap-2">
+        {entries.map((e) => (
+          <SelectableEntryRow
+            key={e.id}
+            entry={e}
+            checked={selectedIds?.has(e.id) ?? false}
+            onToggle={() => onToggleSelect?.(e.id)}
+          />
+        ))}
+      </ul>
+    );
+  }
+
+  const blocks = groupEntries(entries);
+
   return (
     <ul className="flex flex-col gap-2">
-      {entries.map((e) => (
-        <EntryRow key={e.id} entry={e} onDelete={onDelete} onUpdate={onUpdate} />
-      ))}
+      {blocks.map((block) => {
+        if (block.kind === "single") {
+          return (
+            <EntryRow
+              key={block.entry.id}
+              entry={block.entry}
+              onDelete={onDelete}
+              onUpdate={onUpdate}
+            />
+          );
+        }
+        const totalKcal = block.entries.reduce(
+          (sum, e) => sum + entryNutrients(e).kcal,
+          0,
+        );
+        return (
+          <li
+            key={block.mealInstanceId}
+            className="border border-accent/40 bg-accent/5 rounded-2xl p-2"
+          >
+            <div className="flex items-center justify-between gap-2 px-2 py-1 mb-1">
+              <div className="text-xs uppercase tracking-wide text-accent font-medium truncate flex-1 min-w-0">
+                {block.mealName}
+              </div>
+              <div className="text-xs text-muted shrink-0">
+                {round(totalKcal)} kcal
+              </div>
+              {onDeleteMeal && (
+                <button
+                  type="button"
+                  aria-label={`Delete meal ${block.mealName}`}
+                  className="btn-ghost text-muted hover:text-danger shrink-0"
+                  onClick={() => onDeleteMeal(block.mealInstanceId)}
+                >
+                  <Trash2 size={14} />
+                </button>
+              )}
+            </div>
+            <ul className="flex flex-col gap-2">
+              {block.entries.map((e) => (
+                <EntryRow key={e.id} entry={e} onDelete={onDelete} onUpdate={onUpdate} />
+              ))}
+            </ul>
+          </li>
+        );
+      })}
     </ul>
+  );
+}
+
+function SelectableEntryRow({
+  entry,
+  checked,
+  onToggle,
+}: {
+  entry: FoodEntry;
+  checked: boolean;
+  onToggle: () => void;
+}) {
+  const n = entryNutrients(entry);
+  return (
+    <li>
+      <label
+        className={`flex items-start gap-3 bg-panel2 hover:bg-border border rounded-lg p-3 cursor-pointer transition-colors ${
+          checked ? "border-[#7cc4ff]" : "border-border"
+        }`}
+      >
+        <input
+          type="checkbox"
+          className="mt-0.5 w-auto"
+          checked={checked}
+          onChange={onToggle}
+        />
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-medium truncate">{entry.description}</div>
+          <div className="text-xs text-muted truncate">
+            {entry.foodName} · {round(entry.grams)} g · {round(n.kcal)} kcal
+          </div>
+          <div className="text-xs text-muted">
+            P {round(n.protein, 1)} g · C {round(n.carbs, 1)} g · F {round(n.fat, 1)} g
+          </div>
+        </div>
+      </label>
+    </li>
   );
 }
 

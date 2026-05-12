@@ -5,6 +5,7 @@ import { ArrowLeft, Plus } from "lucide-react";
 import type { FoodEntry } from "@/db/schema";
 import { entryNutrients, round } from "@/lib/nutrition";
 import { ImportRecentEntries } from "./ImportRecentEntries";
+import { MealsTab } from "./MealsTab";
 
 type Match = {
   fdcId: number;
@@ -18,15 +19,25 @@ type Match = {
 };
 
 type Stage = { kind: "searching" } | { kind: "selected"; match: Match };
-type Tab = "search" | "import";
+type Tab = "search" | "import" | "meals";
 
 type Props = {
   date: string;
   onAdded: (entry: FoodEntry) => void;
   onImported: (entries: FoodEntry[]) => void;
+  mealsVersion: number;
+  onStartCreateMeal: () => void;
+  onMealImported: (entries: FoodEntry[]) => void;
 };
 
-export function AddFoodForm({ date, onAdded, onImported }: Props) {
+export function AddFoodForm({
+  date,
+  onAdded,
+  onImported,
+  mealsVersion,
+  onStartCreateMeal,
+  onMealImported,
+}: Props) {
   const [tab, setTab] = useState<Tab>("search");
   const [query, setQuery] = useState("");
   const [grams, setGrams] = useState<string>("100");
@@ -227,7 +238,7 @@ export function AddFoodForm({ date, onAdded, onImported }: Props) {
 
   return (
     <div className="card" ref={containerRef}>
-      <div className="flex gap-1 mb-3 -mt-1">
+      <div className="flex flex-wrap gap-1 mb-3 -mt-1">
         <button
           type="button"
           onClick={() => setTab("search")}
@@ -242,11 +253,23 @@ export function AddFoodForm({ date, onAdded, onImported }: Props) {
         >
           Import from recent
         </button>
+        <button
+          type="button"
+          onClick={() => setTab("meals")}
+          className={`text-sm px-3 py-1.5 ${tab === "meals" ? "btn-primary" : "btn-secondary"}`}
+        >
+          Meals
+        </button>
       </div>
-      {tab === "search" ? (
-        renderSearch()
-      ) : (
-        <ImportRecentEntries date={date} onImported={onImported} />
+      {tab === "search" && renderSearch()}
+      {tab === "import" && <ImportRecentEntries date={date} onImported={onImported} />}
+      {tab === "meals" && (
+        <MealsTab
+          date={date}
+          mealsVersion={mealsVersion}
+          onStartCreateMeal={onStartCreateMeal}
+          onMealImported={onMealImported}
+        />
       )}
     </div>
   );

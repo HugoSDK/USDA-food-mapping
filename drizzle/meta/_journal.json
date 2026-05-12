@@ -8,6 +8,13 @@
       "when": 1778475263801,
       "tag": "0000_smart_swarm",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1778559418711,
+      "tag": "0001_glorious_hitman",
+      "breakpoints": true
     }
   ]
 }
