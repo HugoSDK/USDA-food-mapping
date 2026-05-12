@@ -1,4 +1,4 @@
-export const MIN_DATE = "2026-05-26";
+export const MIN_DATE = "2026-01-01";
 
 export function todayLocal(): string {
   const d = new Date();

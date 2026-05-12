@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { MIN_DATE, formatLocalDate, todayLocal } from "@/lib/date";
@@ -30,10 +30,30 @@ export function MonthCalendar({ selected }: { selected: string }) {
   const init = parseDateStr(selected);
   const [viewYear, setViewYear] = useState(init.y);
   const [viewMonth, setViewMonth] = useState(init.m);
+  const [daysWithEntries, setDaysWithEntries] = useState<Set<string>>(new Set());
 
   const today = todayLocal();
   const firstDayOfWeek = new Date(viewYear, viewMonth, 1).getDay();
   const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const from = formatLocalDate(new Date(viewYear, viewMonth, 1));
+    const to = formatLocalDate(new Date(viewYear, viewMonth + 1, 0));
+    (async () => {
+      try {
+        const res = await fetch(`/api/entries/days?from=${from}&to=${to}`, {
+          signal: controller.signal,
+        });
+        if (!res.ok) return;
+        const data = (await res.json()) as { dates: string[] };
+        setDaysWithEntries(new Set(data.dates));
+      } catch {
+        // aborted or network error
+      }
+    })();
+    return () => controller.abort();
+  }, [viewYear, viewMonth, selected]);
 
   const goPrev = () => {
     if (viewMonth === 0) {
@@ -76,6 +96,7 @@ export function MonthCalendar({ selected }: { selected: string }) {
     } else {
       classes += " text-text hover:bg-panel2";
       if (isToday) classes += " ring-1 ring-accent";
+      else if (daysWithEntries.has(dateStr)) classes += " bg-accent/15";
     }
 
     if (isDisabled) {
