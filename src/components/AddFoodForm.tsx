@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, Plus } from "lucide-react";
 import type { FoodEntry } from "@/db/schema";
 import { entryNutrients, round } from "@/lib/nutrition";
+import { ImportRecentEntries } from "./ImportRecentEntries";
 
 type Match = {
   fdcId: number;
@@ -17,13 +18,16 @@ type Match = {
 };
 
 type Stage = { kind: "searching" } | { kind: "selected"; match: Match };
+type Tab = "search" | "import";
 
 type Props = {
   date: string;
   onAdded: (entry: FoodEntry) => void;
+  onImported: (entries: FoodEntry[]) => void;
 };
 
-export function AddFoodForm({ date, onAdded }: Props) {
+export function AddFoodForm({ date, onAdded, onImported }: Props) {
+  const [tab, setTab] = useState<Tab>("search");
   const [query, setQuery] = useState("");
   const [grams, setGrams] = useState<string>("100");
   const [matches, setMatches] = useState<Match[]>([]);
@@ -131,90 +135,118 @@ export function AddFoodForm({ date, onAdded }: Props) {
     }
   };
 
-  if (stage.kind === "selected") {
-    const m = stage.match;
-    const g = Number(grams) || 0;
-    const n = entryNutrients({
-      grams: g,
-      kcalPer100g: m.kcalPer100g,
-      proteinPer100g: m.proteinPer100g,
-      carbsPer100g: m.carbsPer100g,
-      fatPer100g: m.fatPer100g,
-      fiberPer100g: m.fiberPer100g,
-    });
+  const renderSearch = () => {
+    if (stage.kind === "selected") {
+      const m = stage.match;
+      const g = Number(grams) || 0;
+      const n = entryNutrients({
+        grams: g,
+        kcalPer100g: m.kcalPer100g,
+        proteinPer100g: m.proteinPer100g,
+        carbsPer100g: m.carbsPer100g,
+        fatPer100g: m.fatPer100g,
+        fiberPer100g: m.fiberPer100g,
+      });
+      return (
+        <>
+          <div className="text-sm font-medium">{m.description}</div>
+          <div className="text-xs text-muted">
+            {Math.round(m.kcalPer100g)} kcal / 100g · P {round(m.proteinPer100g, 1)} · C{" "}
+            {round(m.carbsPer100g, 1)} · F {round(m.fatPer100g, 1)}
+          </div>
+          <div className="mt-3 w-full sm:w-32">
+            <label className="block text-xs text-muted mb-1">Weight (g)</label>
+            <input
+              type="number"
+              inputMode="decimal"
+              min="1"
+              step="1"
+              value={grams}
+              onChange={(e) => setGrams(e.target.value)}
+              autoFocus
+            />
+          </div>
+          <div className="mt-2 text-sm">
+            <span className="font-medium">{round(n.kcal)} kcal</span>
+            <span className="text-muted">
+              {" "}
+              · P {round(n.protein, 1)} g · C {round(n.carbs, 1)} g · F {round(n.fat, 1)} g
+            </span>
+          </div>
+          {error && <p className="text-danger text-sm mt-2">{error}</p>}
+          <div className="mt-3 flex justify-between gap-2">
+            <button type="button" className="btn-ghost" onClick={back} disabled={submitting}>
+              <ArrowLeft size={16} className="inline mr-1" />
+              back
+            </button>
+            <button type="button" className="btn-primary" onClick={add} disabled={submitting}>
+              <Plus size={16} className="inline mr-1" />
+              {submitting ? "Adding…" : "Add to diary"}
+            </button>
+          </div>
+        </>
+      );
+    }
+
     return (
-      <div className="card" ref={containerRef}>
-        <div className="text-sm font-medium">{m.description}</div>
-        <div className="text-xs text-muted">
-          {Math.round(m.kcalPer100g)} kcal / 100g · P {round(m.proteinPer100g, 1)} · C{" "}
-          {round(m.carbsPer100g, 1)} · F {round(m.fatPer100g, 1)}
-        </div>
-        <div className="mt-3 w-full sm:w-32">
-          <label className="block text-xs text-muted mb-1">Weight (g)</label>
-          <input
-            type="number"
-            inputMode="decimal"
-            min="1"
-            step="1"
-            value={grams}
-            onChange={(e) => setGrams(e.target.value)}
-            autoFocus
-          />
-        </div>
-        <div className="mt-2 text-sm">
-          <span className="font-medium">{round(n.kcal)} kcal</span>
-          <span className="text-muted">
-            {" "}
-            · P {round(n.protein, 1)} g · C {round(n.carbs, 1)} g · F {round(n.fat, 1)} g
-          </span>
-        </div>
+      <>
+        <label className="block text-xs text-muted mb-1">Food</label>
+        <input
+          placeholder="e.g. chicken breast, raw"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onFocus={() => matches.length > 0 && setOpen(true)}
+        />
+        {loading && <p className="text-xs text-muted mt-2">Searching USDA…</p>}
         {error && <p className="text-danger text-sm mt-2">{error}</p>}
-        <div className="mt-3 flex justify-between gap-2">
-          <button type="button" className="btn-ghost" onClick={back} disabled={submitting}>
-            <ArrowLeft size={16} className="inline mr-1" />
-            back
-          </button>
-          <button type="button" className="btn-primary" onClick={add} disabled={submitting}>
-            <Plus size={16} className="inline mr-1" />
-            {submitting ? "Adding…" : "Add to diary"}
-          </button>
-        </div>
-      </div>
+        {open && matches.length > 0 && (
+          <ul className="mt-3 flex flex-col gap-1 border-t border-border pt-3 max-h-96 overflow-y-auto pr-1">
+            {matches.map((m) => (
+              <li key={m.fdcId}>
+                <button
+                  type="button"
+                  onClick={() => select(m)}
+                  className="w-full text-left bg-panel2 hover:bg-border border border-border rounded-lg p-3 transition-colors"
+                >
+                  <div className="text-sm truncate">{m.description}</div>
+                  <div className="text-xs text-muted">
+                    {Math.round(m.kcalPer100g)} kcal / 100g · P {round(m.proteinPer100g, 1)} · C{" "}
+                    {round(m.carbsPer100g, 1)} · F {round(m.fatPer100g, 1)}
+                  </div>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        {open && !loading && query.trim().length >= 2 && matches.length === 0 && (
+          <p className="text-sm text-muted mt-3">No matches. Try a simpler term (e.g. "chicken breast" not "spicy grilled chicken").</p>
+        )}
+      </>
     );
-  }
+  };
 
   return (
     <div className="card" ref={containerRef}>
-      <label className="block text-xs text-muted mb-1">Food</label>
-      <input
-        placeholder="e.g. chicken breast, raw"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        onFocus={() => matches.length > 0 && setOpen(true)}
-      />
-      {loading && <p className="text-xs text-muted mt-2">Searching USDA…</p>}
-      {error && <p className="text-danger text-sm mt-2">{error}</p>}
-      {open && matches.length > 0 && (
-        <ul className="mt-3 flex flex-col gap-1 border-t border-border pt-3 max-h-96 overflow-y-auto pr-1">
-          {matches.map((m) => (
-            <li key={m.fdcId}>
-              <button
-                type="button"
-                onClick={() => select(m)}
-                className="w-full text-left bg-panel2 hover:bg-border border border-border rounded-lg p-3 transition-colors"
-              >
-                <div className="text-sm truncate">{m.description}</div>
-                <div className="text-xs text-muted">
-                  {Math.round(m.kcalPer100g)} kcal / 100g · P {round(m.proteinPer100g, 1)} · C{" "}
-                  {round(m.carbsPer100g, 1)} · F {round(m.fatPer100g, 1)}
-                </div>
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-      {open && !loading && query.trim().length >= 2 && matches.length === 0 && (
-        <p className="text-sm text-muted mt-3">No matches. Try a simpler term (e.g. "chicken breast" not "spicy grilled chicken").</p>
+      <div className="flex gap-1 mb-3 -mt-1">
+        <button
+          type="button"
+          onClick={() => setTab("search")}
+          className={`text-sm px-3 py-1.5 ${tab === "search" ? "btn-primary" : "btn-secondary"}`}
+        >
+          Search
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab("import")}
+          className={`text-sm px-3 py-1.5 ${tab === "import" ? "btn-primary" : "btn-secondary"}`}
+        >
+          Import from recent
+        </button>
+      </div>
+      {tab === "search" ? (
+        renderSearch()
+      ) : (
+        <ImportRecentEntries date={date} onImported={onImported} />
       )}
     </div>
   );

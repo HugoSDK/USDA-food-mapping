@@ -46,6 +46,9 @@ export function DiaryView({ date }: Props) {
 
   const onAdded = (entry: FoodEntry) => setEntries((prev) => [...prev, entry]);
 
+  const onImported = (newEntries: FoodEntry[]) =>
+    setEntries((prev) => [...prev, ...newEntries]);
+
   const onDelete = async (id: string) => {
     const prev = entries;
     setEntries((cur) => cur.filter((e) => e.id !== id));
@@ -81,7 +84,7 @@ export function DiaryView({ date }: Props) {
       <MonthCalendar selected={date} />
       <DateNav date={date} />
       <TotalsCard totals={totals} />
-      <AddFoodForm date={date} onAdded={onAdded} />
+      <AddFoodForm date={date} onAdded={onAdded} onImported={onImported} />
       {error && <div className="card text-sm text-danger">{error}</div>}
       {loading ? (
         <div className="card text-sm text-muted">Loading…</div>
